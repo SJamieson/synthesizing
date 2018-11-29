@@ -11,14 +11,17 @@ path_labels="misc/synset_words.txt"
 IFS=$'\n' read -d '' -r -a labels < ${path_labels}
 
 opt_layer=fc6
-act_layer=fc8
-units="643 624 304 629 437" #"${1}"
-xy=0
+act_layer=$1
+#act_layer=Addmm_1 # CORnet decoder
+#act_layer=Add_8 #CORnet-S IT
+#act_layer=MaxPool2d_4 #CORnet-Z IT
+units="149 396 323 128" #"${1}"
+xys="1 3 5"
 
 # Hyperparam settings for visualizing AlexNet
-iters="200"
-weights="99"
-rates="8.0"
+iters="600"
+weights="999"
+rates="0.5" # Must be x.y floats
 end_lr=1e-10
 
 # Clipping
@@ -35,7 +38,7 @@ if [ "${debug}" -eq "1" ]; then
 fi
 
 # Output dir
-output_dir="output"
+output_dir="output/$act_layer-`date +"%T"`"
 #rm -rf ${output_dir}
 mkdir -p ${output_dir}
 
@@ -54,6 +57,7 @@ for unit in ${units}; do
 
     for n_iters in ${iters}; do
       for w in ${weights}; do
+      for xy in ${xys}; do
         for lr in ${rates}; do
 
           L2="0.${w}"
@@ -77,12 +81,13 @@ for unit in ${units}; do
 
           # Add a category label to each image
           unit_pad=`printf "%04d" ${unit}`
-          f=${output_dir}/${act_layer}_${unit_pad}_${n_iters}_${L2}_${lr}__${seed}.jpg
+          f=${output_dir}/${act_layer}_${unit_pad}_${n_iters}_${L2}_${xy}_${lr}__${seed}.jpg
           convert $f -gravity south -splice 0x10 $f
           convert $f -append -gravity Center -pointsize 30 label:"$label" -bordercolor white -border 0x0 -append $f
 
           list_files="${list_files} ${f}"
         done
+      done
       done
     done
   

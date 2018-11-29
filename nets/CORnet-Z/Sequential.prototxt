@@ -11,6 +11,7 @@ layer {
     }
   }
 }
+force_backward: true
 layer {
   name: "ConvNd_1"
   type: "Convolution"
@@ -170,4 +171,10 @@ layer {
     num_output: 1000
     bias_term: true
   }
+}
+layer {
+  name: "prob"
+  type: "Softmax"
+  bottom: "Addmm_1"
+  top: "prob"
 }

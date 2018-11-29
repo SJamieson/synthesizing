@@ -24,8 +24,8 @@ import argparse # parsing arguments
 
 mean = np.float32([104.0, 117.0, 123.0])
 
-fc_layers = ["fc6", "fc7", "fc8", "loss3/classifier", "fc1000", "prob"]
-conv_layers = ["conv1", "conv2", "conv3", "conv4", "conv5"]
+fc_layers = ["fc6", "fc7", "fc8", "loss3/classifier", "fc1000", "prob", "Addmm_1"]
+conv_layers = ["conv1", "conv2", "conv3", "conv4", "conv5", "Add_8", "MaxPool2d_4"]
 
 if settings.gpu:
   caffe.set_mode_gpu() # uncomment this if gpu processing is available
@@ -111,7 +111,12 @@ def make_step_net(net, end, unit, image, xy=0, step_size=1):
 
   acts = net.forward(data=image, end=end)
 
-  one_hot = np.zeros_like(dst.data)
+  fc = acts[end][0] if end in fc_layers else acts[end][0, :, xy, xy]
+  if fc[unit] >= fc.max():
+    one_hot = np.zeros_like(dst.data)
+  else:
+    #one_hot = -np.sign(acts[end]) / 999
+    one_hot = -acts[end] / 999 # STEWART MODIFICATION
   
   # Move in the direction of increasing activation of the given neuron
   if end in fc_layers:
@@ -121,6 +126,7 @@ def make_step_net(net, end, unit, image, xy=0, step_size=1):
   else:
     raise Exception("Invalid layer type!")
   
+  #print(one_hot)
   dst.diff[:] = one_hot
 
   # Get back the gradient at the optimization layer
@@ -155,7 +161,7 @@ def make_step_net(net, end, unit, image, xy=0, step_size=1):
   # Make an update
   src.data[:] += step_size/np.abs(g).mean() * g
 
-  return (grad_norm, src.data[:].copy(), obj_act)
+  return (grad_norm, src.data[:].copy(), obj_act, fc[best_unit])
 
 
 def get_shape(data_shape):
@@ -208,6 +214,7 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
 
   # Save the activation of each image generated
   list_acts = []
+  reset_count = 0
 
   for o in params:
     
@@ -222,12 +229,16 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
       generated = generator.forward(feat=src.data[:])
       x0 = generated[gen_out_layer]   # 256x256
 
+      desired_mean = [0.485, 0.456, 0.406]
+      desired_std = [0.229, 0.224, 0.225]
+      x0 = np.multiply((x0 - x0.mean(axis=(0,2,3)).reshape((3,1,1))) / x0.std(axis=(0,2,3)).reshape((3,1,1)), np.array(desired_std).reshape((3,1,1))) + np.array(desired_mean).reshape((3,1,1))
+
       # Crop from 256x256 to 227x227
       cropped_x0 = x0.copy()[:,:,topleft[0]:topleft[0]+image_size[0], topleft[1]:topleft[1]+image_size[1]]
 
       # 2. forward pass the image x0 to net to maximize an unit k
       # 3. backprop the gradient from net to the image to get an updated image x
-      grad_norm_net, x, act = make_step_net(net=net, end=layer, unit=unit, image=cropped_x0, xy=xy, step_size=step_size)
+      grad_norm_net, x, act, actual_best_act = make_step_net(net=net, end=layer, unit=unit, image=cropped_x0, xy=xy, step_size=step_size)
       
       # Save the solution
       # Note that we're not saving the solutions with the highest activations
@@ -255,6 +266,11 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
       # L2 on code to make the feature vector smaller every iteration
       if o['L2'] > 0 and o['L2'] < 1:
         updated_code[:] *= o['L2']
+
+     # if actual_best_act > best_act and np.random.random_sample() < 0.1:
+     #   print("Resetting code...")
+     #   reset_count += 1
+     #   updated_code = np.random.normal(0, reset_count + 1, updated_code.shape)
 
       # Update code
       src.data[:] = updated_code
@@ -372,6 +388,7 @@ def main():
   np.random.seed(args.seed)
 
   if args.init_file != "None":
+    raise Error('Unset opt_layer')
     start_code, start_image = get_code(args.init_file, args.opt_layer)
 
     print "Loaded start code: ", start_code.shape
@@ -396,12 +413,13 @@ def main():
             upper_bound=upper_bound, lower_bound=lower_bound)
 
   # Save image
-  filename = "%s/%s_%s_%s_%s_%s__%s.jpg" % (
+  filename = "%s/%s_%s_%s_%s_%s_%s__%s.jpg" % (
       args.output_dir,
       args.act_layer, 
       str(args.unit).zfill(4), 
       str(args.n_iters).zfill(2), 
       args.L2, 
+      args.xy,
       args.start_lr,
       args.seed
     )
