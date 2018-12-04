@@ -12,15 +12,17 @@ IFS=$'\n' read -d '' -r -a labels < ${path_labels}
 
 opt_layer=fc6
 act_layer=$1
+output_layer=${2:-true}
 #act_layer=Addmm_1 # CORnet decoder
 #act_layer=Add_8 #CORnet-S IT
 #act_layer=MaxPool2d_4 #CORnet-Z IT
-units="149 396 323 128" #"${1}"
-xys="1 3 5"
+#units="149 396 323 128" #"${1}"
+units="240 241 152 371"
+xys="-1 3"
 
 # Hyperparam settings for visualizing AlexNet
 iters="600"
-weights="999"
+weights="99"
 rates="0.5" # Must be x.y floats
 end_lr=1e-10
 
@@ -83,7 +85,9 @@ for unit in ${units}; do
           unit_pad=`printf "%04d" ${unit}`
           f=${output_dir}/${act_layer}_${unit_pad}_${n_iters}_${L2}_${xy}_${lr}__${seed}.jpg
           convert $f -gravity south -splice 0x10 $f
-          convert $f -append -gravity Center -pointsize 30 label:"$label" -bordercolor white -border 0x0 -append $f
+          if [[ $output_layer ]]; then
+          	convert $f -append -gravity Center -pointsize 30 label:"$label" -bordercolor white -border 0x0 -append $f
+          fi
 
           list_files="${list_files} ${f}"
         done

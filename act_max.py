@@ -111,7 +111,10 @@ def make_step_net(net, end, unit, image, xy=0, step_size=1):
 
   acts = net.forward(data=image, end=end)
 
-  fc = acts[end][0] if end in fc_layers else acts[end][0, :, xy, xy]
+  if xy == -1:
+    fc = acts[end][0] if end in fc_layers else np.mean(acts[end][0], axis=(1,2))
+  else:
+    fc = acts[end][0] if end in fc_layers else acts[end][0, :, xy, xy]
   if fc[unit] >= fc.max():
     one_hot = np.zeros_like(dst.data)
   else:
@@ -122,7 +125,10 @@ def make_step_net(net, end, unit, image, xy=0, step_size=1):
   if end in fc_layers:
     one_hot.flat[unit] = 1.
   elif end in conv_layers:
-    one_hot[:, unit, xy, xy] = 1.
+    if xy == -1:
+      one_hot[:, unit, :, :] = 1. / np.prod(one_hot.shape[2:])
+    else:
+      one_hot[:, unit, xy, xy] = 1.
   else:
     raise Exception("Invalid layer type!")
   
@@ -152,7 +158,10 @@ def make_step_net(net, end, unit, image, xy=0, step_size=1):
     obj_act = fc[unit]
     
   elif end in conv_layers:
-    fc = acts[end][0, :, xy, xy]
+    if xy == -1:
+      fc = np.mean(acts[end][0], axis=(1,2))
+    else:
+      fc = acts[end][0, :, xy, xy]
     best_unit = fc.argmax()
     obj_act = fc[unit]
 
@@ -334,6 +343,7 @@ def main():
   parser.add_argument('--output_dir', metavar='b', type=str, default=".", help='Output directory for saving results')
   parser.add_argument('--net_weights', metavar='b', type=str, default=settings.net_weights, help='Weights of the net being visualized')
   parser.add_argument('--net_definition', metavar='b', type=str, default=settings.net_definition, help='Definition of the net being visualized')
+  parser.add_argument('--tag', metavar='t', type=str, default="", help='Filename prefix')
 
   args = parser.parse_args()
 
@@ -375,7 +385,7 @@ def main():
   generator = caffe.Net(settings.generator_definition, settings.generator_weights, caffe.TEST)
   net = caffe.Classifier(args.net_definition, args.net_weights,
                mean = mean, # ImageNet mean
-               channel_swap = (2,1,0)) # the reference model has channels in BGR order instead of RGB
+               channel_swap = (0,1,2)) # the reference model has channels in BGR order instead of RGB
 
   # input / output layers in generator
   gen_in_layer = "feat"
@@ -413,7 +423,7 @@ def main():
             upper_bound=upper_bound, lower_bound=lower_bound)
 
   # Save image
-  filename = "%s/%s_%s_%s_%s_%s_%s__%s.jpg" % (
+  filename = "%s/%s_%s_%s_%s_%s_%s_%s__%s.jpg" % (
       args.output_dir,
       args.act_layer, 
       str(args.unit).zfill(4), 
