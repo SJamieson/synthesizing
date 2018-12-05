@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -e
 TAG=${3:-synthesizing}
 NETDIR=${1:-nets}
 RESULTDIR=${2:-../NetDissect-Lite/result}
@@ -29,7 +29,7 @@ weights="99"
 rates="0.5" # Must be x.y floats
 end_lr=1e-10
 xys="-1 3"
-opt_layer="0"
+opt_layer="fc6"
 
 # Clipping
 clip=0
@@ -86,7 +86,8 @@ for network in ${networks}; do
                   --output_dir ${output_dir} \
                   --init_file ${init_file} \
                   --net_definition ${netmap[$network]} \
-                  --net_weights ${weightmap[$network]}
+                  --net_weights ${weightmap[$network]} \
+                  --tag ${test}
 
               # Add a category label to each image
               unit_pad=`printf "%04d" ${unit}`

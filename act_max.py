@@ -114,7 +114,6 @@ def make_step_net(net, end, unit, image, xy=0, step_size=1):
     fc = acts[end][0] if end in fc_layers else np.mean(acts[end][0], axis=(1,2))
   else:
     fc = acts[end][0] if end in fc_layers else acts[end][0, :, xy, xy]
-  print('Maximizing unit ' + str(unit) + ' of ' + str(len(fc)))
   if fc[unit] >= fc.max():
     one_hot = np.zeros_like(dst.data)
   else:
@@ -343,7 +342,7 @@ def main():
   parser.add_argument('--output_dir', metavar='b', type=str, default=".", help='Output directory for saving results')
   parser.add_argument('--net_weights', metavar='b', type=str, default=settings.net_weights, help='Weights of the net being visualized')
   parser.add_argument('--net_definition', metavar='b', type=str, default=settings.net_definition, help='Definition of the net being visualized')
-  parser.add_argument('--tag', metavar='t', type=str, default="", help='Filename prefix')
+  parser.add_argument('--tag', metavar='t', type=str, help='Filename prefix')
 
   args = parser.parse_args()
 
@@ -422,10 +421,10 @@ def main():
             upper_bound=upper_bound, lower_bound=lower_bound)
 
   # Save image
-  filename = "%s/%s_%s_%s_%s_%s_%s_%s__%s.jpg" % (
+  filename = "%s/%s_%s_%s_%s_%s_%s__%s.jpg" % (
       args.output_dir,
-      args.act_layer, 
-      str(args.unit).zfill(4), 
+      args.tag,
+      args.act_layer,
       str(args.n_iters).zfill(2), 
       args.L2, 
       args.xy,
