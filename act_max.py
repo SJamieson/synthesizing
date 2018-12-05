@@ -110,11 +110,11 @@ def make_step_net(net, end, unit, image, xy=0, step_size=1):
   dst = net.blobs[end]
 
   acts = net.forward(data=image, end=end)
-
   if xy == -1:
     fc = acts[end][0] if end in fc_layers else np.mean(acts[end][0], axis=(1,2))
   else:
     fc = acts[end][0] if end in fc_layers else acts[end][0, :, xy, xy]
+  print('Maximizing unit ' + str(unit) + ' of ' + str(len(fc)))
   if fc[unit] >= fc.max():
     one_hot = np.zeros_like(dst.data)
   else:
