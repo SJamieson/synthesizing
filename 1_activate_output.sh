@@ -91,7 +91,7 @@ for network in ${networks}; do
 
               # Add a category label to each image
               unit_pad=`printf "%04d" ${unit}`
-              f=${output_dir}/${act_layer}_${unit_pad}_${n_iters}_${L2}_${xy}_${lr}__${seed}.jpg
+              f=${output_dir}/${test}__${act_layer}_${unit_pad}_${n_iters}_${L2}_${xy}_${lr}__${seed}.jpg
               convert $f -gravity south -splice 0x10 $f
               convert $f -append -gravity Center -pointsize 30 label:"$label" -bordercolor white -border 0x0 -append $f
 
