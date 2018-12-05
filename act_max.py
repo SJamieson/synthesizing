@@ -421,9 +421,10 @@ def main():
             upper_bound=upper_bound, lower_bound=lower_bound)
 
   # Save image
-  filename = "%s/%s_%s_%s_%s_%s_%s__%s.jpg" % (
+  filename = "%s/%s__%s_%s_%s_%s_%s_%s__%s.jpg" % (
       args.output_dir,
       args.tag,
+      args.unit,
       args.act_layer,
       str(args.n_iters).zfill(2), 
       args.L2, 
