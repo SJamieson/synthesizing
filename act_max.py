@@ -398,10 +398,9 @@ def main():
   np.random.seed(args.seed)
 
   if args.init_file != "None":
-    raise Error('Unset opt_layer')
-    start_code, start_image = get_code(args.init_file, args.opt_layer)
-
-    print "Loaded start code: ", start_code.shape
+    raise AssertionError('Unset opt_layer')
+    #start_code, start_image = get_code(args.init_file, args.opt_layer)
+    #print "Loaded start code: ", start_code.shape
   else:
     start_code = np.random.normal(0, 1, shape)
 

@@ -1,30 +1,35 @@
-#/bin/bash
+#!/bin/bash
 
-# Take in an unit number
-#if [ "$#" -ne "1" ]; then
-#  echo "Provide 1 output unit number e.g. 945 for bell pepper."
-#  exit 1
-#fi
+TAG=${3:-synthesizing}
+NETDIR=${1:-nets}
+RESULTDIR=${2:-../NetDissect-Lite/result}
 
-# Get label for each unit
-path_labels="misc/synset_words.txt"
-IFS=$'\n' read -d '' -r -a labels < ${path_labels}
+cornetz='CORnet-Z'
+cornets='CORnet-S'
+networks=($cornetz $cornets)
 
-opt_layer=fc6
-act_layer=$1
-output_layer=${2:-true}
-#act_layer=Addmm_1 # CORnet decoder
-#act_layer=Add_8 #CORnet-S IT
-#act_layer=MaxPool2d_4 #CORnet-Z IT
-#units="149 396 323 128" #"${1}"
-units="240 241 152 371"
-xys="-1 3"
+declare -A layermap
+layermap[$cornetz]='MaxPool2d_4'
+layermap[$cornets]='Add_8'
+
+declare -A netmap
+declare -A weightmap
+netmap[$cornetz]="$NETDIR/$cornetz/Sequential.prototxt"
+weightmap[$cornetz]="$NETDIR/$cornetz/Sequential.caffemodel"
+netmap[$cornets]="$NETDIR/$cornets/Sequential.prototxt"
+weightmap[$cornets]="$NETDIR/$cornets/Sequential.caffemodel"
+
+declare -A tallyfile
+tallyfile[$cornetz]="$RESULTDIR/pytorch_cornetz_imagenet/tally.csv"
+tallyfile[$cornets]="$RESULTDIR/pytorch_cornets_imagenet/tally.csv"
 
 # Hyperparam settings for visualizing AlexNet
 iters="600"
 weights="99"
 rates="0.5" # Must be x.y floats
 end_lr=1e-10
+xys="-1 3"
+opt_layer="0"
 
 # Clipping
 clip=0
@@ -40,67 +45,68 @@ if [ "${debug}" -eq "1" ]; then
 fi
 
 # Output dir
-output_dir="output/$act_layer-`date +"%T"`"
+output_dir="output/$TAG-`date +"%T"`"
 #rm -rf ${output_dir}
 mkdir -p ${output_dir}
 
-list_files=""
+for network in ${networks}; do
 
-# Sweeping across hyperparams
-for unit in ${units}; do
+    list_files=""
 
-  # Get label for each unit
-  label_1=`echo ${labels[unit]} | cut -d "," -f 1 | cut -d " " -f 2`
-  label_2=`echo ${labels[unit]} | cut -d "," -f 1 | cut -d " " -f 3`
-  label="${label_1} ${label_2}"
+    testunits=$(python extract_samples.py ${tallyfile[$network]} ${count:-5})
 
-  for seed in {0..0}; do
-  #for seed in {0..8}; do
+    for test in ${testunits}; do
 
-    for n_iters in ${iters}; do
-      for w in ${weights}; do
-      for xy in ${xys}; do
-        for lr in ${rates}; do
+        act_layer=${layermap[$network]}
+        unit=$(cut -d'-' -f1 <<< $test)
+        label=$(cut -d'-' -f3 <<< $test)
 
-          L2="0.${w}"
+        for seed in {0..0}; do
+        #for seed in {0..8}; do
+        for n_iters in ${iters}; do
+          for w in ${weights}; do
+          for xy in ${xys}; do
+            for lr in ${rates}; do
 
-          # Optimize images maximizing fc8 unit
-          python ./act_max.py \
-              --act_layer ${act_layer} \
-              --opt_layer ${opt_layer} \
-              --unit ${unit} \
-              --xy ${xy} \
-              --n_iters ${n_iters} \
-              --start_lr ${lr} \
-              --end_lr ${end_lr} \
-              --L2 ${L2} \
-              --seed ${seed} \
-              --clip ${clip} \
-              --bound ${bound_file} \
-              --debug ${debug} \
-              --output_dir ${output_dir} \
-              --init_file ${init_file}
+              L2="0.${w}"
+              # Optimize images maximizing fc8 unit
+              python ./act_max.py \
+                  --act_layer ${act_layer} \
+                  --opt_layer ${opt_layer} \
+                  --unit ${unit} \
+                  --xy ${xy} \
+                  --n_iters ${n_iters} \
+                  --start_lr ${lr} \
+                  --end_lr ${end_lr} \
+                  --L2 ${L2} \
+                  --seed ${seed} \
+                  --clip ${clip} \
+                  --bound ${bound_file} \
+                  --debug ${debug} \
+                  --output_dir ${output_dir} \
+                  --init_file ${init_file} \
+                  --net_definition ${netmap[$network]} \
+                  --net_weights ${weightmap[$network]}
 
-          # Add a category label to each image
-          unit_pad=`printf "%04d" ${unit}`
-          f=${output_dir}/${act_layer}_${unit_pad}_${n_iters}_${L2}_${xy}_${lr}__${seed}.jpg
-          convert $f -gravity south -splice 0x10 $f
-          if [[ $output_layer ]]; then
-          	convert $f -append -gravity Center -pointsize 30 label:"$label" -bordercolor white -border 0x0 -append $f
-          fi
+              # Add a category label to each image
+              unit_pad=`printf "%04d" ${unit}`
+              f=${output_dir}/${act_layer}_${unit_pad}_${n_iters}_${L2}_${xy}_${lr}__${seed}.jpg
+              convert $f -gravity south -splice 0x10 $f
+              convert $f -append -gravity Center -pointsize 30 label:"$label" -bordercolor white -border 0x0 -append $f
 
-          list_files="${list_files} ${f}"
+              list_files="${list_files} ${f}"
+            done
+          done
+          done
         done
       done
-      done
     done
-  
-  done
-done
 
-# Make a collage
-output_file=${output_dir}/example1.jpg
-montage ${list_files} -tile 5x1 -geometry +1+1 ${output_file}
-convert ${output_file} -trim ${output_file}
-echo "=============================="
-echo "Result of example 1: [ ${output_file} ]"
+    # Make a collage
+    output_file=${output_dir}/${network}.jpg
+    montage ${list_files} -geometry +1+1 ${output_file}
+    convert ${output_file} -trim ${output_file}
+    echo "=============================="
+    echo "Result of example 1: [ ${output_file} ]"
+
+done
