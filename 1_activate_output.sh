@@ -58,8 +58,8 @@ for network in ${networks}; do
     for test in ${testunits}; do
 
         act_layer=${layermap[$network]}
-        unit=$(cut -d'-' -f1 <<< $test)
-        label=$(cut -d'-' -f3 <<< $test)
+        unit=$(cut -d'_' -f1 <<< $test)
+        label=$(cut -d'_' -f3 <<< $test)
 
         for seed in {0..0}; do
         #for seed in {0..8}; do
