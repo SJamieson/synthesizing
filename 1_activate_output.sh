@@ -28,7 +28,7 @@ iters="600"
 weights="99"
 rates="0.5" # Must be x.y floats
 end_lr=1e-10
-xys="-1 3"
+xys="-1"
 opt_layer="fc6"
 
 # Clipping
@@ -105,7 +105,7 @@ for network in ${networks}; do
 
     # Make a collage
     output_file=${output_dir}/${network}.jpg
-    montage ${list_files} -geometry +1+1 ${output_file}
+    montage ${list_files} -tile 5x3 -geometry +1+1 ${output_file}
     convert ${output_file} -trim ${output_file}
     echo "=============================="
     echo "Result of example 1: [ ${output_file} ]"

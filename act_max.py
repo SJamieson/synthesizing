@@ -425,7 +425,7 @@ def main():
       args.output_dir,
       args.tag,
       args.act_layer,
-      args.unit,
+      str(args.unit).zfill(4),
       str(args.n_iters).zfill(2), 
       args.L2, 
       args.xy,
