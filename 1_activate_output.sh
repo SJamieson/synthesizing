@@ -105,6 +105,13 @@ for network in ${networks}; do
       done
     done
 
+    # Make clean images
+    mkdir ${output_dir}/clean
+    for i in *.jpg; do
+        convert $i -crop 224x224+0+0 "${output_dir}/clean/$i"
+    done
+
+
     # Make a collage
     output_file=${output_dir}/${network}.jpg
     montage ${list_files} -tile 5x3 -geometry +1+1 ${output_file}

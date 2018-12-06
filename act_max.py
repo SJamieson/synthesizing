@@ -315,6 +315,17 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
   print " -------------------------"
   print " Result: obj act [%s] " % best_act
 
+  result_activations = net.forward(data=cropped_x0, end='prob')
+  score = np.max(result_activations['prob'])
+  y = np.argmax(result_activations['prob'])
+  label = None
+  with open("misc/synset_words.txt") as fp:
+    for i, line in enumerate(fp):
+      if i == y:
+        label = "%.3f %s" % (score, (" " + ' '.join(line.split()[1:])))
+        print(label)
+        break
+
   if debug:
     print "Saving list of activations..."
     for p in list_acts:
@@ -323,14 +334,14 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
 
       write_label(name, act)
 
-  return best_xx
+  return best_xx, label
 
 
-def write_label(filename, act):
+def write_label(filename, label, pt):
   # Add activation below each image via ImageMagick
   subprocess.call(["convert %s -gravity south -splice 0x10 %s" % (filename, filename)], shell=True)
-  subprocess.call(["convert %s -append -gravity Center -pointsize %s label:\"%.2f\" -bordercolor white -border 0x0 -append %s" %
-         (filename, 30, act, filename)], shell=True)
+  subprocess.call(["convert %s -append -gravity Center -pointsize %s label:\"%s\" -bordercolor white -border 0x0 -append %s" %
+         (filename, pt, label, filename)], shell=True)
 
 
 def main():
@@ -354,6 +365,7 @@ def main():
   parser.add_argument('--net_weights', metavar='b', type=str, default=settings.net_weights, help='Weights of the net being visualized')
   parser.add_argument('--net_definition', metavar='b', type=str, default=settings.net_definition, help='Definition of the net being visualized')
   parser.add_argument('--tag', metavar='t', type=str, help='Filename prefix')
+  parser.add_argument('--label', metavar='l', type=int, default=1, help='Whether to label with max activation')
 
   args = parser.parse_args()
 
@@ -408,9 +420,8 @@ def main():
   np.random.seed(args.seed)
 
   if args.init_file != "None":
-    raise AssertionError('Unset opt_layer')
-    #start_code, start_image = get_code(args.init_file, args.opt_layer)
-    #print "Loaded start code: ", start_code.shape
+    start_code, start_image = get_code(args.init_file, args.opt_layer)
+    print "Loaded start code: ", start_code.shape
   else:
     start_code = np.random.normal(0, 1, shape)
 
@@ -427,7 +438,7 @@ def main():
     lower_bound = np.zeros(start_code.shape)
 
   # Optimize a code via gradient ascent
-  output_image = activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_code, params, 
+  output_image, label = activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_code, params,
             clip=args.clip, unit=args.unit, xy=args.xy, debug=args.debug,
             upper_bound=upper_bound, lower_bound=lower_bound, adaptive=args.dynamic)
 
@@ -446,6 +457,8 @@ def main():
 
   # Save image
   save_image(output_image, filename, False)
+  if args.label:
+    write_label(filename, label, pt=12)
   print "Saved to %s" % filename
 
   if args.debug:
