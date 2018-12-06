@@ -29,9 +29,9 @@ tallyfile[$cornets]="$RESULTDIR/pytorch_cornets_imagenet/tally.csv"
 tallyfile[$caffenet]="$RESULTDIR/pytorch_caffenet_imagenet/tally.csv"
 
 # Hyperparam settings for visualizing AlexNet
-iters="${iters:-300}"
+iters="${iters:-600}"
 weights="999"
-rates="0.5" # Must be x.y floats
+rates="0.3" # Must be x.y floats
 end_lr=1e-10
 xys="-1"
 opt_layer=fc6
@@ -78,7 +78,7 @@ for network in ${networks}; do
 
               L2="0.${w}"
               # Optimize images maximizing fc8 unit
-              python ./act_max.py \
+              f=$(python ./act_max.py \
                   --act_layer ${act_layer} \
                   --opt_layer ${opt_layer} \
                   --unit ${unit} \
@@ -95,17 +95,17 @@ for network in ${networks}; do
                   --init_file ${init_file} \
                   --net_definition ${netmap[$network]} \
                   --net_weights ${weightmap[$network]} \
-                  --tag ${test}
+                  --tag ${test})
 
 
               # Add a category label to each image
-              unit_pad=`printf "%04d" ${unit}`
-              f=$networkdir/${test}__${act_layer}_${unit_pad}_${n_iters}_${L2}_${xy}_${lr}__${seed}.jpg
-              convert $f -gravity south -splice 0x10 $f
-              convert $f -append -gravity Center -pointsize 30 label:"$label" -bordercolor white -border 0x0 -append $f
+              fname=$(basename "$f")
+              mkdir -p "$networkdir/clean"
+              convert "$f" -crop 224x224+0+0 "$networkdir/clean/$fname"
 
-              mkdir -p $networkdir/clean
-              convert $f -crop 224x224+0+0 "$networkdir/clean/$(basename $f)"
+              #convert $f -gravity north -splice 0x10 $f
+              #convert "$f" -append -gravity north -pointsize 30 label:"$label" -bordercolor white -border 0x0 +swap -append "$f"
+              convert "$f" -gravity North -splice 0x40 -pointsize 30 -annotate +0+2 "$label" "$f"
 
               list_files="${list_files} ${f}"
             done
@@ -116,8 +116,8 @@ for network in ${networks}; do
     done
 
     # Make a collage
-    output_file=${output_dir}/${network}.jpg
-    montage ${list_files} -tile 5x3 -geometry +1+1 ${output_file}
+    output_file=${output_dir}/${network}.png
+    montage ${list_files} -tile 5x3 -geometry +5+10 ${output_file}
     convert ${output_file} -trim ${output_file}
     echo "=============================="
     echo "Result of example 1: [ ${output_file} ]"

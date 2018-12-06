@@ -3,6 +3,7 @@
 Anh Nguyen <anh.ng8@gmail.com>
 2016-06-04
 '''
+from __future__ import print_function
 import os
 os.environ['GLOG_minloglevel'] = '2'  # suprress Caffe verbose prints
 
@@ -22,6 +23,9 @@ import scipy.misc, scipy.io
 import patchShow
 import visualize
 import argparse # parsing arguments
+
+def eprint(msg, **kwargs):
+  print(msg, file=sys.stderr, **kwargs)
 
 mean = np.float32([104.0, 117.0, 123.0])
 
@@ -132,7 +136,7 @@ def make_step_net(net, end, unit, image, xy=0, step_size=1, adaptive=True):
   else:
     raise Exception("Invalid layer type!")
   
-  #print(one_hot)
+  #eprint(one_hot)
   dst.diff[:] = one_hot
 
   # Get back the gradient at the optimization layer
@@ -165,7 +169,7 @@ def make_step_net(net, end, unit, image, xy=0, step_size=1, adaptive=True):
     best_unit = fc.argmax()
     obj_act = fc[unit]
 
-  print "max: %4s [%.2f]\t obj: %4s [%.2f]\t norm: [%.2f]" % (best_unit, fc[best_unit], unit, obj_act, grad_norm)
+  eprint("max: %4s [%.2f]\t obj: %4s [%.2f]\t norm: [%.2f]" % (best_unit, fc[best_unit], unit, obj_act, grad_norm))
 
   # Make an update
   src.data[:] += step_size/np.abs(g).mean() * g
@@ -208,7 +212,7 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
   # The top left offset that we start cropping the output image to get the 227x227 image
   topleft = ((output_size[0] - image_size[0])/2, (output_size[1] - image_size[1])/2)
 
-  print "Starting optimizing"
+  eprint("Starting optimizing")
 
   x = None
   src = generator.blobs[gen_in_layer]
@@ -297,7 +301,7 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
 
       # Print x every 10 iterations
       if debug:
-        print " > %s " % i
+        eprint(" > %s " % i)
         name = "./debug/%s.jpg" % str(i).zfill(3)
 
         save_image(x.copy(), name, False)
@@ -307,15 +311,15 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
 
       # Stop if grad is 0
       if grad_norm_generator == 0:
-        print " grad_norm_generator is 0"
+        eprint(" grad_norm_generator is 0")
         break
       elif grad_norm_net == 0:
-        print " grad_norm_net is 0"
+        eprint(" grad_norm_net is 0")
         break
 
   # returning the resulting image
-  print " -------------------------"
-  print " Result: obj act [%s] " % best_act
+  eprint(" -------------------------")
+  eprint(" Result: obj act [%s] " % best_act)
 
   result_activations = net.forward(data=cropped_x0, end='prob')
   score = np.max(result_activations['prob'])
@@ -325,13 +329,13 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
     for i, line in enumerate(fp):
       if i == y:
         label = "%.3f %s" % (score, (" " + ' '.join(line.split()[1:])))
-        print(label)
+        eprint(label)
         break
 
   #save_image(visualize.visualize(generator, updated_code, visualize.get_transformer()), 'test.jpg', False, False)
 
   if debug:
-    print "Saving list of activations..."
+    eprint("Saving list of activations...")
     for p in list_acts:
       name = p[0]
       act = p[1]
@@ -341,10 +345,10 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
   return best_xx, label
 
 
-def write_label(filename, label, pt):
+def write_label(filename, label, pt, max_char=25):
   # Add activation below each image via ImageMagick
-  if len(label) > 35:
-    label = label[:35]
+  if len(label) > max_char:
+    label = label[:max_char]
   subprocess.call(["convert %s -gravity south -splice 0x10 %s" % (filename, filename)], shell=True)
   subprocess.call(["convert %s -append -gravity Center -pointsize %s label:\"%s\" -bordercolor white -border 0x0 -append %s" %
          (filename, pt, label, filename)], shell=True)
@@ -380,24 +384,24 @@ def main():
     args.end_lr = args.start_lr
 
   # which neuron to visualize
-  print "-------------"
-  print " unit: %s  xy: %s" % (args.unit, args.xy)
-  print " n_iters: %s" % args.n_iters
-  print " L2: %s" % args.L2
-  print " start learning rate: %s" % args.start_lr
-  print " end learning rate: %s" % args.end_lr
-  print " seed: %s" % args.seed
-  print " opt_layer: %s" % args.opt_layer
-  print " act_layer: %s" % args.act_layer
-  print " init_file: %s" % args.init_file
-  print " clip: %s" % args.clip
-  print " bound: %s" % args.bound
-  print "-------------"
-  print " debug: %s" % args.debug
-  print " output dir: %s" % args.output_dir
-  print " net weights: %s" % args.net_weights
-  print " net definition: %s" % args.net_definition
-  print "-------------"
+  eprint("-------------")
+  eprint(" unit: %s  xy: %s" % (args.unit, args.xy))
+  eprint(" n_iters: %s" % args.n_iters)
+  eprint(" L2: %s" % args.L2)
+  eprint(" start learning rate: %s" % args.start_lr)
+  eprint(" end learning rate: %s" % args.end_lr)
+  eprint(" seed: %s" % args.seed)
+  eprint(" opt_layer: %s" % args.opt_layer)
+  eprint(" act_layer: %s" % args.act_layer)
+  eprint(" init_file: %s" % args.init_file)
+  eprint(" clip: %s" % args.clip)
+  eprint(" bound: %s" % args.bound)
+  eprint("-------------")
+  eprint(" debug: %s" % args.debug)
+  eprint(" output dir: %s" % args.output_dir)
+  eprint(" net weights: %s" % args.net_weights)
+  eprint(" net definition: %s" % args.net_definition)
+  eprint("-------------")
 
   params = [
     {
@@ -427,7 +431,7 @@ def main():
 
   if args.init_file != "None":
     start_code, start_image = get_code(args.init_file, args.opt_layer)
-    print "Loaded start code: ", start_code.shape
+    eprint("Loaded start code: ", start_code.shape)
   else:
     start_code = np.random.normal(0, 1, shape)
 
@@ -449,7 +453,7 @@ def main():
             upper_bound=upper_bound, lower_bound=lower_bound, adaptive=args.dynamic)
 
   # Save image
-  filename = "%s/%s__%s_%s_%s_%s_%s_%s__%s.jpg" % (
+  filename = "%s/%s__%s_%s_%s_%s_%s_%s__%s.png" % (
       args.output_dir,
       args.tag,
       args.act_layer,
@@ -464,12 +468,12 @@ def main():
   # Save image
   save_image(output_image, filename, False)
   if args.label:
-    write_label(filename, label, pt=12)
-  print "Saved to %s" % filename
+    write_label(filename, label, pt=18)
+  eprint("Saved to %s" % filename)
 
   if args.debug:
     save_image(output_image, "./debug/%s.jpg" % str(args.n_iters).zfill(3), False)
-  
+  return filename
 
 if __name__ == '__main__':
-  main()
+  print(main())
