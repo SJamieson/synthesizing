@@ -6,12 +6,13 @@ RESULTDIR=${2:-../NetDissect-Lite/result}
 
 cornetz='CORnet-Z'
 cornets='CORnet-S'
-#networks="$cornetz $cornets"
+caffenet='caffenet'
 networks="$cornets $cornetz"
 
 declare -A layermap
 layermap[$cornetz]='MaxPool2d_4'
 layermap[$cornets]='Add_8'
+layermap[$caffenet]='fc8'
 
 declare -A netmap
 declare -A weightmap
@@ -19,10 +20,13 @@ netmap[$cornetz]="$NETDIR/$cornetz/Sequential.prototxt"
 weightmap[$cornetz]="$NETDIR/$cornetz/Sequential.caffemodel"
 netmap[$cornets]="$NETDIR/$cornets/Sequential.prototxt"
 weightmap[$cornets]="$NETDIR/$cornets/Sequential.caffemodel"
+netmap[$caffenet]="$NETDIR/$caffenet/caffenet.prototxt"
+weightmap[$caffenet]="$NETDIR/$caffenet/bvlc_reference_caffenet.caffemodel"
 
 declare -A tallyfile
 tallyfile[$cornetz]="$RESULTDIR/pytorch_cornetz_imagenet/tally.csv"
 tallyfile[$cornets]="$RESULTDIR/pytorch_cornets_imagenet/tally.csv"
+tallyfile[$caffenet]="$RESULTDIR/pytorch_caffenet_imagenet/tally.csv"
 
 # Hyperparam settings for visualizing AlexNet
 iters="${iters:-300}"
