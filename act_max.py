@@ -125,7 +125,7 @@ def make_step_net(net, end, unit, image, xy=0, step_size=1, adaptive=True):
     one_hot.flat[unit] = 1.
   elif end in conv_layers:
     if xy == -1:
-      one_hot[:, unit, :, :] = 1. / np.prod(one_hot.shape[2:])
+      one_hot[:, unit, :, :] = 1. #/ np.prod(one_hot.shape[2:])
     else:
       one_hot[:, unit, xy, xy] = 1.
   else:

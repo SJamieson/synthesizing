@@ -26,7 +26,7 @@ tallyfile[$cornets]="$RESULTDIR/pytorch_cornets_imagenet/tally.csv"
 
 # Hyperparam settings for visualizing AlexNet
 iters="600"
-weights="99"
+weights="999"
 rates="0.5" # Must be x.y floats
 end_lr=1e-10
 xys="-1"
@@ -54,6 +54,7 @@ for network in ${networks}; do
 
     list_files=""
 
+    #testunits="149_x_y 396_x_y 323_x_y 128_x_y"
     testunits=$(python extract_samples.py ${tallyfile[$network]} ${count:-5})
 
     for test in ${testunits}; do
