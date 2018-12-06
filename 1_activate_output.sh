@@ -25,7 +25,7 @@ tallyfile[$cornetz]="$RESULTDIR/pytorch_cornetz_imagenet/tally.csv"
 tallyfile[$cornets]="$RESULTDIR/pytorch_cornets_imagenet/tally.csv"
 
 # Hyperparam settings for visualizing AlexNet
-iters="600"
+iters="${iters:-300}"
 weights="999"
 rates="0.5" # Must be x.y floats
 end_lr=1e-10
@@ -52,6 +52,8 @@ mkdir -p ${output_dir}
 
 for network in ${networks}; do
 
+    networkdir="$output_dir/$network"
+    mkdir -p $networkdir
     list_files=""
 
     #testunits="149_x_y 396_x_y 323_x_y 128_x_y"
@@ -85,17 +87,21 @@ for network in ${networks}; do
                   --clip ${clip} \
                   --bound ${bound_file} \
                   --debug ${debug} \
-                  --output_dir ${output_dir} \
+                  --output_dir $networkdir \
                   --init_file ${init_file} \
                   --net_definition ${netmap[$network]} \
                   --net_weights ${weightmap[$network]} \
                   --tag ${test}
 
+
               # Add a category label to each image
               unit_pad=`printf "%04d" ${unit}`
-              f=${output_dir}/${test}__${act_layer}_${unit_pad}_${n_iters}_${L2}_${xy}_${lr}__${seed}.jpg
+              f=$networkdir/${test}__${act_layer}_${unit_pad}_${n_iters}_${L2}_${xy}_${lr}__${seed}.jpg
               convert $f -gravity south -splice 0x10 $f
               convert $f -append -gravity Center -pointsize 30 label:"$label" -bordercolor white -border 0x0 -append $f
+
+              mkdir -p $networkdir/clean
+              convert $f -crop 224x224+0+0 "$networkdir/clean/$(basename $f)"
 
               list_files="${list_files} ${f}"
             done
@@ -104,13 +110,6 @@ for network in ${networks}; do
         done
       done
     done
-
-    # Make clean images
-    mkdir ${output_dir}/clean
-    for i in *.jpg; do
-        convert $i -crop 224x224+0+0 "${output_dir}/clean/$i"
-    done
-
 
     # Make a collage
     output_file=${output_dir}/${network}.jpg

@@ -20,6 +20,7 @@ from numpy.linalg import norm
 from numpy.testing import assert_array_equal
 import scipy.misc, scipy.io
 import patchShow
+import visualize
 import argparse # parsing arguments
 
 mean = np.float32([104.0, 117.0, 123.0])
@@ -181,14 +182,15 @@ def get_shape(data_shape):
     raise Exception("Data shape invalid.")
 
 
-def save_image(img, name, reverse_channels=True):
+def save_image(img, name, reverse_channels=True, normalize=True):
   '''
   Normalize and save the image.
   '''
   if reverse_channels:
     img = img[:,::-1, :, :] # Convert from BGR to RGB
-  normalized_img = patchShow.patchShow_single(img, in_range=(-120,120))        
-  scipy.misc.imsave(name, normalized_img)
+  if normalize:
+    img = patchShow.patchShow_single(img, in_range=(-120,120))
+  scipy.misc.imsave(name, img)
 
 
 def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_code, params, 
@@ -326,6 +328,8 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
         print(label)
         break
 
+  #save_image(visualize.visualize(generator, updated_code, visualize.get_transformer()), 'test.jpg', False, False)
+
   if debug:
     print "Saving list of activations..."
     for p in list_acts:
@@ -339,6 +343,8 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
 
 def write_label(filename, label, pt):
   # Add activation below each image via ImageMagick
+  if len(label) > 35:
+    label = label[:35]
   subprocess.call(["convert %s -gravity south -splice 0x10 %s" % (filename, filename)], shell=True)
   subprocess.call(["convert %s -append -gravity Center -pointsize %s label:\"%s\" -bordercolor white -border 0x0 -append %s" %
          (filename, pt, label, filename)], shell=True)
