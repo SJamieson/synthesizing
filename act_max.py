@@ -38,7 +38,7 @@ def get_code(path, layer):
 
   # set up the inputs for the net: 
   batch_size = 1
-  image_size = (3, 227, 227)
+  image_size = (3, 224, 224)
   images = np.zeros((batch_size,) + image_size, dtype='float32')
 
   in_image = scipy.misc.imread(path)
@@ -101,7 +101,7 @@ def make_step_generator(net, x, x0, start, end, step_size=1):
   return grad_norm, src.data[:].copy()
 
 
-def make_step_net(net, end, unit, image, xy=0, step_size=1):
+def make_step_net(net, end, unit, image, xy=0, step_size=1, adaptive=True):
   '''
   Forward and backward passes through the DNN being visualized.
   '''
@@ -114,7 +114,7 @@ def make_step_net(net, end, unit, image, xy=0, step_size=1):
     fc = acts[end][0] if end in fc_layers else np.mean(acts[end][0], axis=(1,2))
   else:
     fc = acts[end][0] if end in fc_layers else acts[end][0, :, xy, xy]
-  if fc[unit] >= fc.max():
+  if not adaptive or fc[unit] >= fc.max():
     one_hot = np.zeros_like(dst.data)
   else:
     #one_hot = -np.sign(acts[end]) / 999
@@ -181,17 +181,18 @@ def get_shape(data_shape):
     raise Exception("Data shape invalid.")
 
 
-def save_image(img, name):
+def save_image(img, name, reverse_channels=True):
   '''
   Normalize and save the image.
   '''
-  img = img[:,::-1, :, :] # Convert from BGR to RGB
+  if reverse_channels:
+    img = img[:,::-1, :, :] # Convert from BGR to RGB
   normalized_img = patchShow.patchShow_single(img, in_range=(-120,120))        
   scipy.misc.imsave(name, normalized_img)
 
 
 def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_code, params, 
-      clip=False, debug=False, unit=None, xy=0, upper_bound=None, lower_bound=None):
+      clip=False, debug=False, unit=None, xy=0, upper_bound=None, lower_bound=None, adaptive=True):
 
   # Get the input and output sizes
   data_shape = net.blobs['data'].data.shape
@@ -224,6 +225,9 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
   list_acts = []
   reset_count = 0
 
+  desired_mean = np.array([0.485, 0.456, 0.406]).reshape((3,1,1))
+  desired_std = np.array([0.229, 0.224, 0.225]).reshape((3,1,1))
+
   for o in params:
     
     # select layer
@@ -236,17 +240,21 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
       # 1. pass the code to generator to get an image x0
       generated = generator.forward(feat=src.data[:])
       x0 = generated[gen_out_layer]   # 256x256
-
-      desired_mean = [0.485, 0.456, 0.406]
-      desired_std = [0.229, 0.224, 0.225]
-      x0 = np.multiply((x0 - x0.mean(axis=(0,2,3)).reshape((3,1,1))) / x0.std(axis=(0,2,3)).reshape((3,1,1)), np.array(desired_std).reshape((3,1,1))) + np.array(desired_mean).reshape((3,1,1))
+      x0 = x0[:,::-1,:,:]
+      x0 = (x0 - np.mean(x0, axis=(0,2,3)).reshape((3,1,1))) * (desired_std / np.std(x0, axis=(0,2,3)).reshape((3,1,1))) + desired_mean
 
       # Crop from 256x256 to 227x227
-      cropped_x0 = x0.copy()[:,:,topleft[0]:topleft[0]+image_size[0], topleft[1]:topleft[1]+image_size[1]]
+      #cropped_x0 = x0.copy()[:,:,topleft[0]:topleft[0]+image_size[0], topleft[1]:topleft[1]+image_size[1]]
+      cropped_x0 = x0.copy()[:, :, topleft[0]:topleft[0] + image_size[0], topleft[1]:topleft[1] + image_size[1]]
+
+      #img = (img - np.mean(img, axis=(0,1))) * (model.std / np.std(img, axis=(0,1))) + model.mean
+      #x0 = np.multiply((x0 - x0.mean(axis=(0,2,3)).reshape((3,1,1))) / x0.std(axis=(0,2,3)).reshape((3,1,1)), np.array(desired_std).reshape((3,1,1))) + np.array(desired_mean).reshape((3,1,1))
+      #cropped_x0 = (cropped_x0 - np.mean(cropped_x0, axis=(0,2,3)).reshape((3,1,1))) * (desired_std / np.std(cropped_x0, axis=(0,2,3)).reshape((3,1,1))) + desired_mean
+      #cropped_x0 = cropped_x0[:,::-1,:,:]
 
       # 2. forward pass the image x0 to net to maximize an unit k
       # 3. backprop the gradient from net to the image to get an updated image x
-      grad_norm_net, x, act, actual_best_act = make_step_net(net=net, end=layer, unit=unit, image=cropped_x0, xy=xy, step_size=step_size)
+      grad_norm_net, x, act, actual_best_act = make_step_net(net=net, end=layer, unit=unit, image=cropped_x0, xy=xy, step_size=step_size, adaptive=adaptive)
       
       # Save the solution
       # Note that we're not saving the solutions with the highest activations
@@ -254,6 +262,8 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
       best_xx = cropped_x0.copy()
       best_act = act
 
+      x0 = x0[:,::-1,:,:]
+      x = x[:,::-1,:,:]
       # 4. Place the changes in x (227x227) back to x0 (256x256)
       updated_x0 = x0.copy()        
       updated_x0[:,:,topleft[0]:topleft[0]+image_size[0], topleft[1]:topleft[1]+image_size[1]] = x.copy()
@@ -288,7 +298,7 @@ def activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_c
         print " > %s " % i
         name = "./debug/%s.jpg" % str(i).zfill(3)
 
-        save_image(x.copy(), name)
+        save_image(x.copy(), name, False)
 
         # Save acts for later
         list_acts.append( (name, act) )
@@ -338,6 +348,7 @@ def main():
   parser.add_argument('--init_file', metavar='s', type=str, default="None", help='Init image')
   parser.add_argument('--debug', metavar='b', type=int, default=0, help='Print out the images or not')
   parser.add_argument('--clip', metavar='b', type=int, default=0, help='Clip out within a code range')
+  parser.add_argument('--dynamic', metavar='d', type=int, default=1, help='Adaptive training loss')
   parser.add_argument('--bound', metavar='b', type=str, default="", help='The file to an array that is the upper bound for activation range')
   parser.add_argument('--output_dir', metavar='b', type=str, default=".", help='Output directory for saving results')
   parser.add_argument('--net_weights', metavar='b', type=str, default=settings.net_weights, help='Weights of the net being visualized')
@@ -418,7 +429,7 @@ def main():
   # Optimize a code via gradient ascent
   output_image = activation_maximization(net, generator, gen_in_layer, gen_out_layer, start_code, params, 
             clip=args.clip, unit=args.unit, xy=args.xy, debug=args.debug,
-            upper_bound=upper_bound, lower_bound=lower_bound)
+            upper_bound=upper_bound, lower_bound=lower_bound, adaptive=args.dynamic)
 
   # Save image
   filename = "%s/%s__%s_%s_%s_%s_%s_%s__%s.jpg" % (
@@ -434,11 +445,11 @@ def main():
     )
 
   # Save image
-  save_image(output_image, filename)
+  save_image(output_image, filename, False)
   print "Saved to %s" % filename
 
   if args.debug:
-    save_image(output_image, "./debug/%s.jpg" % str(args.n_iters).zfill(3))
+    save_image(output_image, "./debug/%s.jpg" % str(args.n_iters).zfill(3), False)
   
 
 if __name__ == '__main__':

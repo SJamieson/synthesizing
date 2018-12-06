@@ -6,7 +6,8 @@ RESULTDIR=${2:-../NetDissect-Lite/result}
 
 cornetz='CORnet-Z'
 cornets='CORnet-S'
-networks=($cornetz $cornets)
+#networks="$cornetz $cornets"
+networks="$cornets $cornetz"
 
 declare -A layermap
 layermap[$cornetz]='MaxPool2d_4'
@@ -29,7 +30,7 @@ weights="99"
 rates="0.5" # Must be x.y floats
 end_lr=1e-10
 xys="-1"
-opt_layer="fc6"
+opt_layer=fc6
 
 # Clipping
 clip=0
